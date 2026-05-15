@@ -14,7 +14,7 @@ import { chromium } from 'playwright';
 import { resolve, dirname } from 'path';
 import { readFile } from 'fs/promises';
 import { mkdirSync } from 'fs';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -113,10 +113,12 @@ async function generatePDF() {
   let html = await readFile(inputPath, 'utf-8');
 
   // Resolve font paths relative to career-ops/fonts/
+  // pathToFileURL handles Windows backslashes and drive letters correctly (file:///C:/...)
   const fontsDir = resolve(__dirname, 'fonts');
+  const fontsDirUrl = pathToFileURL(fontsDir).href + '/';
   html = html.replace(
     /url\(['"]?\.\/fonts\//g,
-    `url('file://${fontsDir}/`
+    `url('${fontsDirUrl}`
   );
   // Close any unclosed quotes from the replacement (handles all font formats)
   html = html.replace(
@@ -138,9 +140,11 @@ async function generatePDF() {
     const page = await browser.newPage();
 
     // Set content with file base URL for any relative resources
+    // pathToFileURL handles Windows backslashes and drive letters correctly
+    const inputDirUrl = pathToFileURL(dirname(inputPath)).href;
     await page.setContent(html, {
       waitUntil: 'networkidle',
-      baseURL: `file://${dirname(inputPath)}/`,
+      baseURL: inputDirUrl.endsWith('/') ? inputDirUrl : inputDirUrl + '/',
     });
 
     // Wait for fonts to load
